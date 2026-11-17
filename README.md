@@ -75,7 +75,7 @@
   "useSitePricing": false,     // 是否用中转站站点价（默认关）
   "budget": 0.5,               // 本次对话预算（展示币种）；0 = 不设，达 80% 提示、超出报警
   "overrides": {               // 手工单价覆盖，键为 "provider/model" 或裸 model
-    "a6api/deepseek-v4.1-flash-1017": { "input": 2, "output": 8, "cacheRead": 0.04 }
+    "my-gateway/deepseek-v4.1-flash-1017": { "input": 2, "output": 8, "cacheRead": 0.04 }
   }
 }
 ```
@@ -96,7 +96,7 @@
 ```jsonc
 {
   "overrides": {
-    "a6api/deepseek-v4.1-flash-1017": { "input": 6.68, "output": 6.68, "cacheRead": 6.68, "cacheWrite": 6.68 }
+    "my-gateway/deepseek-v4.1-flash-1017": { "input": 6.68, "output": 6.68, "cacheRead": 6.68, "cacheWrite": 6.68 }
   }
 }
 ```
@@ -104,10 +104,10 @@
 ## 启用
 
 1. `~/.dsh/profiles/desktop/package.json`
-   - `dependencies`: `"dsh-cost-forecast": "link:F:/杂项/dsh-cost-forecast"`
+   - `dependencies`: `"dsh-cost-forecast": "link:<本插件目录>"`
    - `dsh.profile.bundles`: 追加 `"dsh-cost-forecast"`
 2. `~/.dsh/profiles/desktop/node_modules/dsh-cost-forecast` → 目录 junction
-3. `~/.dsh/profiles/desktop/cordis.patch.yml` 的 `- id: hmr` → `config.root` 追加 `'F:/杂项/dsh-cost-forecast'`（宿主半部热重载）
+3. `~/.dsh/profiles/desktop/cordis.patch.yml` 的 `- id: hmr` → `config.root` 追加 `'<本插件目录>'`（宿主半部热重载）
 4. 重启 DSH（profile 层改动只在启动时组合）
 
 ## 备注

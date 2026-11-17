@@ -1,5 +1,7 @@
 // 宿主半部站点价目联调：模拟 ctx + llm 服务，跑 apply 并请求 /cost-forecast/catalogue?provider=a6api
 import { apply } from './index.js'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 const routes = new Map()
 const ctx = {
@@ -10,7 +12,7 @@ const ctx = {
       return () => routes.delete(spec.path)
     },
   },
-  dshHomePath: (...segments) => ['C:/Users/Administrator/.dsh', ...segments].join('/'),
+  dshHomePath: (...segments) => join(homedir(), '.dsh', ...segments),
   effect(fn) {
     const dispose = fn()
     return dispose
