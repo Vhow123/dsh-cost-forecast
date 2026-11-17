@@ -1,4 +1,4 @@
-// 宿主半部站点价目联调：模拟 ctx + llm 服务，跑 apply 并请求 /cost-forecast/catalogue?provider=a6api
+// 宿主半部站点价目联调：模拟 ctx + llm 服务，跑 apply 并请求 /cost-forecast/catalogue?provider=my-gateway
 import { apply } from './index.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -21,7 +21,7 @@ const ctx = {
     if (name !== 'llm') return undefined
     return {
       listProviders: () => [
-        { id: 'a6api', name: 'a6api', baseUrl: 'https://a6api.vip/v1' },
+        { id: 'my-gateway', name: 'my-gateway', baseUrl: 'https://my-gateway.vip/v1' },
         { id: 'apiling', name: 'apiling', baseUrl: 'https://api.apiling.xyz/v1' },
       ],
     }
@@ -51,8 +51,8 @@ function call(path) {
   })
 }
 
-const a6 = await call('/cost-forecast/catalogue?provider=a6api')
-console.log('a6api site ok:', a6.site?.ok, 'url:', a6.site?.url, 'groupRatio:', a6.site?.groupRatio, 'entries:', a6.site?.entries?.length)
+const a6 = await call('/cost-forecast/catalogue?provider=my-gateway')
+console.log('my-gateway site ok:', a6.site?.ok, 'url:', a6.site?.url, 'groupRatio:', a6.site?.groupRatio, 'entries:', a6.site?.entries?.length)
 const target = a6.site?.entries?.find((e) => e.model === 'deepseek-v4.1-flash-1017')
 console.log('deepseek-v4.1-flash-1017 站点价:', JSON.stringify(target))
 const sol = a6.site?.entries?.find((e) => e.model === 'gpt-6.1-sol')

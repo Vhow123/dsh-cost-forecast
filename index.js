@@ -299,7 +299,8 @@ export function apply(ctx) {
     try {
       out.homePath = ctx.dshHomePath('profiles', 'desktop', 'cordis.patch.yml')
       out.homeExists = existsSync(out.homePath)
-      out.probeBaseUrl = baseUrlFromProfilePatch('a6api')
+      const firstProvider = out.providers.find((item) => item.id)
+      out.probeBaseUrl = firstProvider ? baseUrlFromProfilePatch(firstProvider.id) : null
     } catch (error) {
       out.homePathError = String(error?.message ?? error)
     }

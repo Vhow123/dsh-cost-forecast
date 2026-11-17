@@ -1,10 +1,11 @@
 // 渲染冒烟测试：用最小 React 替身在 node 里真跑 CostForecastDock，检查输出文本。
 // 用法：node test-render.mjs
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 import { CN_HOLIDAYS } from './holidays.js'
 
-const CLIENT = 'F:/杂项/dsh-cost-forecast/lib/client.js'
+const CLIENT = fileURLToPath(new URL('./lib/client.js', import.meta.url))
 
 // client.js 结尾是 `return module.exports`，临时注入测试出口
 const source = readFileSync(CLIENT, 'utf8').replace(
@@ -61,7 +62,7 @@ class FakeDate extends Date {
 
 const PROJECTIONS = {
   tokenUsage: { uncachedInputTokens: 42000, outputTokens: 6000, cacheReadTokens: 300000, cacheWriteTokens: 0 },
-  modelSelection: { lastUsed: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' }, next: null },
+  modelSelection: { lastUsed: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' }, next: null },
   contextPressure: { contextWindow: 128000, pressureTokens: 90000, projectedTokens: 96000 },
   contextBreakdown: { systemTokens: 6000, toolsTokens: 9000, messageTokens: 81000 },
   sessionStats: { turns: 6, steps: 6, llmMs: 0, toolMs: 0, ttftMs: 0, ttftSteps: 0, decodeMs: 0, decodeTokens: 0 },
@@ -203,8 +204,8 @@ const SITE_BODY = JSON.parse(JSON.stringify(CATALOGUE_BODY))
 SITE_BODY.config = Object.assign({}, SITE_BODY.config, { useSitePricing: true })
 SITE_BODY.site = {
   ok: true,
-  provider: 'a6api-site',
-  url: 'https://a6api.vip/api/pricing',
+  provider: 'gateway-site',
+  url: 'https://my-gateway.vip/api/pricing',
   fetchedAt: Date.now(),
   groupRatio: 1,
   entries: [
@@ -218,7 +219,7 @@ SITE_BODY.site = {
   ],
 }
 sandbox.fetch = async () => ({ ok: true, status: 200, json: async () => SITE_BODY })
-PROJECTIONS.modelSelection = { lastUsed: null, next: { provider: 'a6api-site', model: 'deepseek-v4.1-flash-1017' } }
+PROJECTIONS.modelSelection = { lastUsed: null, next: { provider: 'gateway-site', model: 'deepseek-v4.1-flash-1017' } }
 cursor = 0
 slots.length = 0
 effects.length = 0
@@ -256,7 +257,7 @@ const sitePanel = flatten(
   }),
 )
 console.log('[6] 站点价面板来源：', sitePanel.slice(-160))
-if (!sitePanel.includes('来源：站点 a6api-site')) throw new Error('面板来源行应显示站点 provider → ' + sitePanel.slice(-240))
+if (!sitePanel.includes('来源：站点 gateway-site')) throw new Error('面板来源行应显示站点 provider → ' + sitePanel.slice(-240))
 console.log('  ✓ 站点价分支渲染正确')
 
 // ---- 单价可自定义：编辑 → 用站点价 → 保存 ----

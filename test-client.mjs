@@ -1,11 +1,12 @@
 // 客户端半部逻辑自测：用 vm 加载 lib/client.js，stub react / react-dom / window / fetch，
 // 把闭包里的 computeCost / matchEntry 抽出来对真实价目跑一遍。
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { createContext, runInContext } from 'node:vm'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-const SRC = 'F:/杂项/dsh-cost-forecast/lib/client.js'
+const SRC = fileURLToPath(new URL('./lib/client.js', import.meta.url))
 const src = readFileSync(SRC, 'utf8').replace(
   'return module.exports',
   'module.exports.__test = { computeCost, matchEntry, formatMoney, normalizeKey, convert, pickByPeriod, peakWindow, isPeakAt }; return module.exports',
@@ -53,7 +54,7 @@ const T = mod.__test
 if (!T) throw new Error('__test 抽口缺失')
 
 // ---- 真实价目（复用宿主半部的解析逻辑）----
-const { apply } = await import('file:///F:/杂项/dsh-cost-forecast/index.js')
+const { apply } = await import(new URL('./index.js', import.meta.url).href)
 const routes = []
 apply({
   webServer: { prefixes: new Map(), register: (spec) => (routes.push(spec), noop) },
@@ -75,7 +76,7 @@ console.log('价目条目:', catalogue.entries.length, '| 基币:', catalogue.ba
 // ---- 1. 模型名匹配 ----
 console.log('\n[1] 模型名匹配')
 const m1 = T.matchEntry(catalogue.entries, 'deepseek-v4.1-flash-1017', true)
-assert(m1 && m1.period === 'offPeak', 'dagster a6api 的 deepseek-v4.1-flash-1017 → 谷时条目')
+assert(m1 && m1.period === 'offPeak', 'dagster my-gateway 的 deepseek-v4.1-flash-1017 → 谷时条目')
 const m1p = T.matchEntry(catalogue.entries, 'deepseek-v4.1-flash-1017', false)
 assert(m1p && m1p.period === 'peak', '同时刻切峰时 → 峰时条目')
 const m2 = T.matchEntry(catalogue.entries, 'grok-4.7', false)
@@ -98,7 +99,7 @@ const usage = {
 }
 const cost = T.computeCost({
   usage,
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 120_000, contextWindow: 1_000_000 },
   stats: { turns: 4 },
   catalogue: offPeakCatalogue,
@@ -124,7 +125,7 @@ console.log('\n[3] 峰时（deepseekOffPeak=false）')
 const peakCatalogue = { ...catalogue, deepseekOffPeak: false }
 const costPeak = T.computeCost({
   usage,
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 120_000, contextWindow: 1_000_000 },
   stats: { turns: 4 },
   catalogue: peakCatalogue,
@@ -152,11 +153,11 @@ assert(Math.abs(usdCost.spent - (1 + 5) * fx) < 1e-9, `已花 = (1+5) USD × ${f
 console.log('\n[5] 手工单价覆盖')
 const overrideCost = T.computeCost({
   usage: { uncachedInputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 0 },
   stats: { turns: 1 },
   catalogue: offPeakCatalogue,
-  config: { ...config, useSitePricing: true, overrides: { 'a6api/deepseek-v4.1-flash-1017': { input: 0.5, output: 2 } } },
+  config: { ...config, useSitePricing: true, overrides: { 'my-gateway/deepseek-v4.1-flash-1017': { input: 0.5, output: 2 } } },
 })
 assert(overrideCost.priceSource === 'override', '覆盖生效')
 assert(overrideCost.spent === 0.5, '按覆盖价 ¥0.5/M 计算')
@@ -181,8 +182,8 @@ assert(T.formatMoney(1234.5, 'USD') === '$1,234.50', '千分位')
 console.log('\n[8] 站点价目优先')
 const site = {
   ok: true,
-  provider: 'a6api',
-  url: 'https://a6api.vip/api/pricing',
+  provider: 'my-gateway',
+  url: 'https://my-gateway.vip/api/pricing',
   fetchedAt: Date.now(),
   groupRatio: 1,
   entries: [
@@ -198,7 +199,7 @@ const site = {
 const siteUsage = { uncachedInputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
 const siteCost = T.computeCost({
   usage: siteUsage,
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 0 },
   stats: { turns: 1 },
   catalogue: offPeakCatalogue,
@@ -210,16 +211,16 @@ assert(Math.abs(siteCost.price.input - fx) < 1e-9, `站点 $1/M 输入 → ¥${f
 assert(Math.abs(siteCost.price.output - fx) < 1e-9, '站点 $1/M 输出（completion_ratio=1）')
 assert(Math.abs(siteCost.price.cacheRead - fx) < 1e-9, '站点缓存读（cache_ratio=1）不打折')
 assert(Math.abs(siteCost.spent - fx) < 1e-9, `已花 = 1M × ¥${fx.toFixed(4)}`)
-assert(siteCost.siteProvider === 'a6api', '记录站点 provider 供面板展示')
+assert(siteCost.siteProvider === 'my-gateway', '记录站点 provider 供面板展示')
 
 const siteVsOverride = T.computeCost({
   usage: siteUsage,
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 0 },
   stats: { turns: 1 },
   catalogue: offPeakCatalogue,
   site,
-  config: { ...config, useSitePricing: true, overrides: { 'a6api/deepseek-v4.1-flash-1017': { input: 0.5, output: 2 } } },
+  config: { ...config, useSitePricing: true, overrides: { 'my-gateway/deepseek-v4.1-flash-1017': { input: 0.5, output: 2 } } },
 })
 assert(siteVsOverride.priceSource === 'override', '手工覆盖仍压过站点价')
 
@@ -238,7 +239,7 @@ assert(siteFallback.siteError === 'HTTP 404', '保留站点错误信息供面板
 // 默认关闭站点价：即便宿主下发了 site，也只用官方价目
 const siteOff = T.computeCost({
   usage: siteUsage,
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 0 },
   stats: { turns: 1 },
   catalogue: offPeakCatalogue,
@@ -258,7 +259,7 @@ const derived = T.computeCost({
     cacheWriteTokens: 0,
     outputTokens: 6000,
   },
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 96000, contextWindow: 128000 },
   breakdown: { systemTokens: 3000, toolsTokens: 2000, messageTokens: 90000 },
   stats: { turns: 3 },
@@ -272,7 +273,7 @@ assert(derived.budget === 0 && derived.budgetState === 'none', '未设预算时 
 
 const withBudget = T.computeCost({
   usage: { uncachedInputTokens: 42000, cacheReadTokens: 300000, cacheWriteTokens: 0, outputTokens: 6000 },
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 96000, contextWindow: 128000 },
   breakdown: { systemTokens: 3000, toolsTokens: 2000, messageTokens: 90000 },
   stats: { turns: 3 },
@@ -284,7 +285,7 @@ assert(Math.abs(withBudget.budgetRatio - withBudget.spent / 0.08) < 1e-12, 'budg
 
 const overBudget = T.computeCost({
   usage: { uncachedInputTokens: 42000, cacheReadTokens: 300000, cacheWriteTokens: 0, outputTokens: 6000 },
-  selection: { next: { provider: 'a6api', model: 'deepseek-v4.1-flash-1017' } },
+  selection: { next: { provider: 'my-gateway', model: 'deepseek-v4.1-flash-1017' } },
   pressure: { projectedTokens: 96000, contextWindow: 128000 },
   breakdown: { systemTokens: 3000, toolsTokens: 2000, messageTokens: 90000 },
   stats: { turns: 3 },
